@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>獎勵卡銀行</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌸</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<style>
+:root{
+  --bg:#FEF5F9; --panel:#FFFFFF; --ink:#4A2C4E; --ink-soft:#8A6B8E;
+  --pink:#FF8FBE; --pink-deep:#F0619F; --pink-light:#FFE3F0;
+  --green:#3FBF88; --green-deep:#2AA371; --green-light:#DFF6EB;
+  --purple:#8B5CF6; --purple-deep:#7440E8; --purple-light:#EDE7FF;
+  --gold:#FFB534; --gold-light:#FFF3DA;
+  --danger:#E5484D; --danger-light:#FFE5E6;
+  --radius:20px; --shadow:0 4px 16px rgba(74,44,78,.08);
+  --num:'Baloo 2','Noto Sans TC',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%}
+body{
+  font-family:'Noto Sans TC',sans-serif;color:var(--ink);background:var(--bg);
+  background-image:radial-gradient(circle at 12% 8%, #FFE9F3 0, transparent 30%),
+                   radial-gradient(circle at 88% 20%, #F0E9FF 0, transparent 32%),
+                   radial-gradient(circle at 50% 95%, #E3F7EE 0, transparent 30%);
+  background-attachment:fixed;
+  min-height:100vh;font-size:16px;line-height:1.55;
+}
+.wrap{max-width:640px;margin:0 auto;padding:16px 16px 64px}
+.hidden{display:none!important}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+
+/* ---------- 登入畫面 ---------- */
+#loginScreen{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center}
+.card-fan{position:relative;width:180px;height:130px;margin-bottom:28px}
+.fan-card{position:absolute;left:50%;bottom:0;width:84px;height:118px;border-radius:14px;border:4px solid #fff;box-shadow:var(--shadow);transform-origin:50% 100%}
+.fan-card.pk{background:linear-gradient(160deg,var(--pink),var(--pink-deep));transform:translateX(-50%) rotate(-18deg)}
+.fan-card.gr{background:linear-gradient(160deg,var(--green),var(--green-deep));transform:translateX(-50%) rotate(0deg);z-index:1}
+.fan-card.pu{background:linear-gradient(160deg,var(--purple),var(--purple-deep));transform:translateX(-50%) rotate(18deg)}
+.fan-card::after{content:'★';position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.9);font-size:30px}
+#loginScreen h1{font-size:30px;font-weight:900;letter-spacing:.04em}
+#loginScreen p{color:var(--ink-soft);margin:8px 0 20px}
+.browser-hint{font-size:12.5px;color:var(--ink-soft);background:var(--gold-light);border-radius:12px;padding:8px 14px;margin-bottom:20px;max-width:280px}
+.g-btn{display:inline-flex;align-items:center;gap:10px;background:#fff;border:2px solid var(--ink);border-radius:999px;padding:13px 26px;font-size:17px;font-weight:700;box-shadow:0 4px 0 var(--ink);transition:transform .1s}
+.g-btn:active{transform:translateY(3px);box-shadow:0 1px 0 var(--ink)}
+.g-btn img{width:22px;height:22px}
+#loginErr{color:var(--danger);margin-top:16px;font-size:14px}
+
+/* ---------- 頁首 ---------- */
+header{display:flex;align-items:center;gap:10px;padding:14px 2px 18px}
+.logo{font-size:26px}
+header h1{font-size:20px;font-weight:900;flex:1;letter-spacing:.03em}
+.user-chip{display:flex;align-items:center;gap:8px;background:var(--panel);border-radius:999px;padding:5px 12px 5px 6px;box-shadow:var(--shadow);font-size:13px;font-weight:700}
+.user-chip img{width:26px;height:26px;border-radius:50%}
+.role-tag{font-size:11px;background:var(--purple-light);color:var(--purple-deep);border-radius:999px;padding:1px 8px}
+.role-tag.admin{background:var(--gold-light);color:#B07600}
+.logout-btn{font-size:12px;color:var(--ink-soft);text-decoration:underline;margin-left:2px}
+
+/* ---------- 通用面板 ---------- */
+.panel{background:var(--panel);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px;margin-bottom:18px}
+.panel h2{font-size:15px;font-weight:900;letter-spacing:.08em;color:var(--ink-soft);margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.panel h2 .emoji{font-size:18px}
+
+/* ---------- 資產總覽 ---------- */
+.balance-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.b-card{position:relative;border-radius:16px;padding:14px 8px 12px;text-align:center;color:#fff;border:3px solid #fff;box-shadow:0 3px 10px rgba(74,44,78,.15);overflow:hidden}
+.b-card::before{content:'';position:absolute;inset:5px;border:2px dashed rgba(255,255,255,.55);border-radius:11px;pointer-events:none}
+.b-card.pk{background:linear-gradient(165deg,var(--pink),var(--pink-deep));transform:rotate(-1.2deg)}
+.b-card.gr{background:linear-gradient(165deg,var(--green),var(--green-deep))}
+.b-card.pu{background:linear-gradient(165deg,var(--purple),var(--purple-deep));transform:rotate(1.2deg)}
+.b-card .cnt{font-family:var(--num);font-size:38px;font-weight:800;line-height:1.05;text-shadow:0 2px 0 rgba(0,0,0,.12)}
+.b-card .lbl{font-size:13px;font-weight:700;opacity:.95}
+.stat-row{display:flex;gap:12px;margin-top:14px}
+.stat{flex:1;background:var(--bg);border-radius:14px;padding:10px 12px;text-align:center}
+.stat .v{font-family:var(--num);font-size:24px;font-weight:800}
+.stat .k{font-size:12px;color:var(--ink-soft);font-weight:700}
+.stat.gold .v{color:#C98600}
+.exchange-hint{margin-top:12px;text-align:center;font-size:12px;color:var(--ink-soft)}
+
+/* ---------- 生息中的紫卡 ---------- */
+.p-empty{text-align:center;color:var(--ink-soft);font-size:14px;padding:10px 0}
+.p-card{border:2px solid var(--purple-light);border-radius:16px;padding:12px 14px;margin-bottom:10px;background:linear-gradient(180deg,#FBF9FF,#fff)}
+.p-top{display:flex;align-items:center;gap:10px}
+.p-icon{width:34px;height:46px;border-radius:8px;background:linear-gradient(160deg,var(--purple),var(--purple-deep));border:2.5px solid #fff;box-shadow:0 2px 6px rgba(139,92,246,.4);display:flex;align-items:center;justify-content:center;color:#fff;font-size:15px;flex-shrink:0}
+.p-info{flex:1;min-width:0}
+.p-title{font-size:14px;font-weight:900}
+.p-sub{font-size:12px;color:var(--ink-soft)}
+.p-next{text-align:right;flex-shrink:0}
+.p-next .n{font-family:var(--num);font-size:24px;font-weight:800;color:var(--purple-deep);line-height:1}
+.p-next .t{font-size:11px;color:var(--ink-soft);font-weight:700}
+.p-next.ready .n{color:#C98600}
+.dots{display:flex;gap:5px;margin-top:10px}
+.dot{flex:1;height:8px;border-radius:99px;background:var(--purple-light)}
+.dot.on{background:linear-gradient(90deg,var(--purple),var(--pink-deep))}
+.p-detail{margin-top:10px;border-top:1.5px dashed var(--purple-light);padding-top:8px;font-size:12.5px;color:var(--ink-soft)}
+.p-detail li{list-style:none;display:flex;justify-content:space-between;padding:2px 0}
+.p-toggle{font-size:12px;color:var(--purple-deep);font-weight:700;margin-top:8px;text-decoration:underline}
+.origin-badge{font-size:10.5px;border-radius:99px;padding:1px 7px;background:var(--gold-light);color:#B07600;font-weight:700;vertical-align:1px}
+.origin-badge.dep{background:var(--purple-light);color:var(--purple-deep)}
+
+/* ---------- 存摺紀錄 ---------- */
+.tx-row{display:flex;align-items:center;gap:10px;padding:10px 2px;border-bottom:1.5px dashed #F0E4EE}
+.tx-row:last-child{border-bottom:none}
+.tx-chip{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;border:2px solid #fff;box-shadow:0 2px 5px rgba(74,44,78,.12)}
+.tx-chip.pk{background:var(--pink-light)}.tx-chip.gr{background:var(--green-light)}.tx-chip.pu{background:var(--purple-light)}
+.tx-main{flex:1;min-width:0}
+.tx-line1{font-size:14.5px;font-weight:700}
+.tx-line1 .amt{font-family:var(--num);font-weight:800}
+.tx-line2{font-size:12px;color:var(--ink-soft)}
+.tx-type{font-size:12px;font-weight:900;border-radius:99px;padding:2px 10px;flex-shrink:0}
+.tx-type.dep{background:var(--green-light);color:var(--green-deep)}
+.tx-type.wd{background:var(--danger-light);color:var(--danger)}
+.tx-failed{opacity:.72}
+.tx-failed .tx-line2{color:var(--danger);font-weight:700}
+.tx-actions{display:flex;gap:6px;flex-shrink:0}
+.mini-btn{font-size:12px;font-weight:700;border-radius:99px;padding:4px 10px;background:var(--bg)}
+.mini-btn.del{color:var(--danger)}
+.warn-banner{background:var(--danger-light);color:var(--danger);border-radius:14px;padding:10px 14px;font-size:13.5px;font-weight:700;margin-bottom:14px}
+.more-btn{width:100%;text-align:center;font-size:13px;font-weight:700;color:var(--ink-soft);padding:10px 0 2px;text-decoration:underline}
+
+/* ---------- 管理表單 ---------- */
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.form-grid .full{grid-column:1/-1}
+label.f-label{display:block;font-size:12.5px;font-weight:900;color:var(--ink-soft);margin-bottom:5px}
+input,select{width:100%;font-family:inherit;font-size:16px;font-weight:700;color:var(--ink);border:2px solid #EBDCEA;border-radius:12px;padding:10px 12px;background:#fff;appearance:none}
+input:focus,select:focus{outline:none;border-color:var(--purple)}
+.seg{display:flex;background:var(--bg);border-radius:12px;padding:4px;gap:4px}
+.seg button{flex:1;border-radius:9px;padding:9px 0;font-size:14.5px;font-weight:900;color:var(--ink-soft)}
+.seg button.on-dep{background:var(--green);color:#fff}
+.seg button.on-wd{background:var(--danger);color:#fff}
+.color-seg{display:flex;gap:8px}
+.color-seg button{flex:1;border-radius:12px;padding:10px 0;font-size:14px;font-weight:900;border:2.5px solid transparent;background:var(--bg);color:var(--ink-soft)}
+.color-seg button.sel.pk{background:var(--pink-light);border-color:var(--pink-deep);color:var(--pink-deep)}
+.color-seg button.sel.gr{background:var(--green-light);border-color:var(--green-deep);color:var(--green-deep)}
+.color-seg button.sel.pu{background:var(--purple-light);border-color:var(--purple-deep);color:var(--purple-deep)}
+.submit-btn{width:100%;margin-top:14px;background:var(--ink);color:#fff;font-size:16.5px;font-weight:900;border-radius:14px;padding:14px 0;box-shadow:0 4px 0 #2E1A31;transition:transform .1s}
+.submit-btn:active{transform:translateY(3px);box-shadow:0 1px 0 #2E1A31}
+.submit-btn:disabled{opacity:.5}
+.cancel-edit{width:100%;margin-top:8px;font-size:13.5px;font-weight:700;color:var(--ink-soft);text-decoration:underline;padding:6px 0}
+.editing-note{background:var(--gold-light);color:#B07600;font-size:13px;font-weight:700;border-radius:12px;padding:8px 12px;margin-bottom:12px}
+
+/* ---------- 其他 ---------- */
+#toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(80px);background:var(--ink);color:#fff;font-size:14.5px;font-weight:700;border-radius:999px;padding:11px 22px;box-shadow:0 6px 20px rgba(0,0,0,.25);transition:transform .25s;z-index:99;max-width:90vw;text-align:center}
+#toast.show{transform:translateX(-50%) translateY(0)}
+.demo-banner{background:var(--gold-light);color:#B07600;text-align:center;font-size:13px;font-weight:900;border-radius:12px;padding:8px;margin-bottom:14px}
+.denied{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:24px;gap:12px}
+.spin{min-height:100vh;display:flex;align-items:center;justify-content:center;font-size:40px;animation:sp 1.4s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.spin{animation:none}#toast{transition:none}}
+@media (max-width:380px){.b-card .cnt{font-size:31px}.stat .v{font-size:20px}}
+</style>
+</head>
+<body>
+
+<!-- ======= 載入中 ======= -->
+<div id="loading" class="spin">🌸</div>
+
+<!-- ======= 登入畫面 ======= -->
+<div id="loginScreen" class="hidden">
+  <div class="card-fan">
+    <div class="fan-card pk"></div><div class="fan-card pu"></div><div class="fan-card gr"></div>
+  </div>
+  <h1 id="loginTitle">獎勵卡銀行</h1>
+  <p>把獎勵卡存進來,讓它慢慢長大 ✨</p>
+  <div class="browser-hint">📱 請用手機的 Safari 或 Chrome 開啟這個網址,不要用 LINE 內建瀏覽器,不然 Google 登入可能會失敗喔</div>
+  <button class="g-btn" id="googleBtn">
+    <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="">
+    使用 Google 帳號登入
+  </button>
+  <div id="loginErr"></div>
+</div>
+
+<!-- ======= 未授權 ======= -->
+<div id="deniedScreen" class="denied hidden">
+  <div style="font-size:52px">🔒</div>
+  <h2 style="font-weight:900">這個帳號還沒有開通喔</h2>
+  <p style="color:var(--ink-soft);font-size:14px" id="deniedEmail"></p>
+  <button class="g-btn" onclick="signOut()">改用其他帳號登入</button>
+</div>
+
+<!-- ======= 主畫面 ======= -->
+<div id="app" class="wrap hidden">
+  <header>
+    <span class="logo">🌸</span>
+    <h1 id="bankTitle">獎勵卡銀行</h1>
+    <div class="user-chip">
+      <img id="avatar" alt="">
+      <span id="userName"></span>
+      <span class="role-tag" id="roleTag"></span>
+    </div>
+  </header>
+  <div style="text-align:right;margin:-10px 2px 12px"><button class="logout-btn" onclick="signOut()">登出</button></div>
+
+  <div id="demoBanner" class="demo-banner hidden">🧪 示範模式:資料不會被儲存,設定好 Firebase 後即可正式使用</div>
+  <div id="warnBanner" class="warn-banner hidden"></div>
+
+  <!-- 資產總覽 -->
+  <section class="panel">
+    <h2><span class="emoji">💰</span>目前的獎勵卡</h2>
+    <div class="balance-grid">
+      <div class="b-card pk"><div class="cnt" id="cntPink">0</div><div class="lbl">粉色</div></div>
+      <div class="b-card gr"><div class="cnt" id="cntGreen">0</div><div class="lbl">綠色</div></div>
+      <div class="b-card pu"><div class="cnt" id="cntPurple">0</div><div class="lbl">紫色</div></div>
+    </div>
+    <div class="stat-row">
+      <div class="stat"><div class="v" id="statValue">0</div><div class="k">總價值(換算粉卡)</div></div>
+      <div class="stat gold"><div class="v" id="statInterest">✨ 0</div><div class="k">累計生出的利息(粉卡)</div></div>
+    </div>
+    <div class="exchange-hint" id="exchangeHint"></div>
+  </section>
+
+  <!-- 生息中的紫卡 -->
+  <section class="panel">
+    <h2><span class="emoji">🌱</span>生息中的紫卡 <span id="pCount" style="color:var(--purple-deep)"></span></h2>
+    <div id="purpleList"></div>
+    <div id="purpleStats" style="font-size:12.5px;color:var(--ink-soft);text-align:center;margin-top:6px"></div>
+  </section>
+
+  <!-- 管理員:存入/提領 -->
+  <section class="panel hidden" id="adminPanel">
+    <h2><span class="emoji">🛠️</span>管理員操作</h2>
+    <div class="editing-note hidden" id="editingNote"></div>
+    <div class="form-grid">
+      <div class="full">
+        <label class="f-label">類型</label>
+        <div class="seg">
+          <button id="segDep" onclick="setType('deposit')">存入</button>
+          <button id="segWd" onclick="setType('withdraw')">提領</button>
+        </div>
+      </div>
+      <div class="full">
+        <label class="f-label">獎勵卡顏色</label>
+        <div class="color-seg">
+          <button class="pk" id="colPink" onclick="setColor('pink')">粉色</button>
+          <button class="gr" id="colGreen" onclick="setColor('green')">綠色</button>
+          <button class="pu" id="colPurple" onclick="setColor('purple')">紫色</button>
+        </div>
+      </div>
+      <div>
+        <label class="f-label">日期</label>
+        <input type="date" id="inDate">
+      </div>
+      <div>
+        <label class="f-label">張數</label>
+        <input type="number" id="inAmount" min="1" step="1" value="1" inputmode="numeric">
+      </div>
+      <div class="full">
+        <label class="f-label">備註(選填)</label>
+        <input type="text" id="inNote" placeholder="例如:幫忙洗碗一週 🎉" maxlength="100">
+      </div>
+    </div>
+    <button class="submit-btn" id="submitBtn" onclick="submitTx()">存入獎勵卡</button>
+    <button class="cancel-edit hidden" id="cancelEditBtn" onclick="cancelEdit()">取消編輯</button>
+  </section>
+
+  <!-- 存摺紀錄 -->
+  <section class="panel">
+    <h2><span class="emoji">📖</span>存摺紀錄</h2>
+    <div id="txList"></div>
+    <button class="more-btn hidden" id="moreBtn" onclick="showAllTx()">顯示全部紀錄</button>
+  </section>
+</div>
+
+<div id="toast"></div>
+
+<script>
+/* ==================================================================
+ * ★★★ 設定區:部署前請修改這裡 ★★★
+ * ================================================================== */
+const CONFIG = {
+  FIREBASE: {
+    apiKey: "AIzaSyBXpLiBMyD2bq6yhvZOnjnm4Ag7TCiYaeU",
+    authDomain: "reward-card-bank.firebaseapp.com",
+    projectId: "reward-card-bank",
+    appId: "1:186860209659:web:0fad239625e0f194a0375e",
+  },
+  BANK_TITLE: "小寶貝的獎勵卡銀行",   // 改成女兒的名字
+  // ---- 規則參數(之後想調整生息速度改這裡即可)----
+  PINK_PER_GREEN: 5,       // 幾張粉卡 = 1 張綠卡
+  GREEN_PER_PURPLE: 2,     // 幾張綠卡 = 1 張紫卡
+  INTEREST_DAYS: 7,        // 紫卡每存滿幾天生息一次
+  INTEREST_AMOUNT: 1,      // 每次生幾張粉卡
+};
+/* ================================================================== */
+
+/* ===== 核心計算引擎(規則詳見註解;已通過 17 項規則測試)===== */
+function _dUTC(s){const[y,m,d]=s.split('-').map(Number);return Date.UTC(y,m-1,d)}
+function dayDiff(a,b){return Math.round((_dUTC(b)-_dUTC(a))/86400000)}
+function addDays(s,n){return new Date(_dUTC(s)+n*86400000).toISOString().slice(0,10)}
+function simulate(txs,todayStr,cfg){
+  const PPG=cfg.PINK_PER_GREEN,GPP=cfg.GREEN_PER_PURPLE;
+  const st={pink:0,green:0,purples:[],allPurples:[],totalInterest:0,failedTx:[]};
+  const valid=(txs||[]).filter(t=>t&&t.date&&t.amount>0);
+  if(valid.length===0)return finalize(st,todayStr,cfg);
+  const sorted=[...valid].sort((a,b)=>a.date!==b.date?(a.date<b.date?-1:1):String(a.created_at||'')<String(b.created_at||'')?-1:1);
+  const byDate={};for(const t of sorted)(byDate[t.date]=byDate[t.date]||[]).push(t);
+  let pid=0;
+  const newPurple=(date,origin)=>{const p={id:++pid,start:date,origin,interestDates:[],status:'active',end:null};st.purples.push(p);st.allPurples.push(p);return p};
+  const lifoSort=()=>st.purples.sort((a,b)=>a.start!==b.start?(a.start<b.start?1:-1):b.id-a.id);
+  const removeNewestPurple=(date,status)=>{lifoSort();const p=st.purples.shift();p.status=status;p.end=date;return p};
+  const mergeAll=(date)=>{let ch=true;while(ch){ch=false;
+    if(st.pink>=PPG){const n=Math.floor(st.pink/PPG);st.pink-=n*PPG;st.green+=n;ch=true}
+    if(st.green>=GPP){const n=Math.floor(st.green/GPP);st.green-=n*GPP;for(let i=0;i<n;i++)newPurple(date,'merge');ch=true}}};
+  const tryWithdraw=(t,date)=>{const{color,amount}=t;
+    if(color==='purple'){if(st.purples.length<amount)return false;for(let i=0;i<amount;i++)removeNewestPurple(date,'withdrawn');return true}
+    if(color==='green'){if(st.green+st.purples.length*GPP<amount)return false;
+      while(st.green<amount){removeNewestPurple(date,'broken');st.green+=GPP}st.green-=amount;return true}
+    if(st.pink+st.green*PPG+st.purples.length*GPP*PPG<amount)return false;
+    while(st.pink<amount){if(st.green>0){st.green--;st.pink+=PPG}else{removeNewestPurple(date,'broken');st.green+=GPP}}
+    st.pink-=amount;return true};
+  const first=sorted[0].date,end=todayStr>=first?todayStr:first;
+  for(let cur=first;cur<=end;cur=addDays(cur,1)){
+    for(const p of st.purples){const h=dayDiff(p.start,cur);
+      if(h>0&&h%cfg.INTEREST_DAYS===0){st.pink+=cfg.INTEREST_AMOUNT;st.totalInterest+=cfg.INTEREST_AMOUNT;p.interestDates.push(cur)}}
+    mergeAll(cur);
+    for(const t of byDate[cur]||[]){
+      if(t.type==='deposit'){
+        if(t.color==='pink')st.pink+=t.amount;
+        else if(t.color==='green')st.green+=t.amount;
+        else for(let i=0;i<t.amount;i++)newPurple(cur,'deposit');
+      }else if(!tryWithdraw(t,cur))st.failedTx.push(t);
+    }
+    mergeAll(cur);
+  }
+  return finalize(st,todayStr,cfg);
+}
+function finalize(st,todayStr,cfg){
+  const PPG=cfg.PINK_PER_GREEN,GPP=cfg.GREEN_PER_PURPLE;
+  const active=st.purples.map(p=>{const h=dayDiff(p.start,todayStr),r=h%cfg.INTEREST_DAYS;
+    return{...p,daysHeld:h,interestCount:p.interestDates.length,nextInterestIn:r===0?cfg.INTEREST_DAYS:cfg.INTEREST_DAYS-r,progress:r}})
+    .sort((a,b)=>a.start!==b.start?(a.start<b.start?-1:1):a.id-b.id);
+  return{pink:st.pink,green:st.green,purpleCount:st.purples.length,
+    totalValuePink:st.pink+st.green*PPG+st.purples.length*GPP*PPG,
+    totalInterest:st.totalInterest,activePurples:active,allPurples:st.allPurples,
+    depositedPurples:st.allPurples.filter(p=>p.origin==='deposit').length,
+    mergedPurples:st.allPurples.filter(p=>p.origin==='merge').length,
+    failedTx:st.failedTx};
+}
+
+/* ===== App 狀態 ===== */
+const DEMO=!CONFIG.FIREBASE.apiKey;
+let auth=null, db=null, unsubscribeTx=null;
+let me={email:'',name:'',avatar:'',role:''};
+let transactions=[];
+let editingId=null;
+let formType='deposit',formColor='pink';
+let showAll=false;
+const $=id=>document.getElementById(id);
+const todayLocal=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`};
+const COLOR_NAME={pink:'粉色',green:'綠色',purple:'紫色'};
+const COLOR_CLS={pink:'pk',green:'gr',purple:'pu'};
+const fmtDate=s=>{const[y,m,d]=s.split('-');return `${y}/${+m}/${+d}`};
+
+function toast(msg){const t=$('toast');t.textContent=msg;t.classList.add('show');clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('show'),2400)}
+function show(screen){for(const s of['loading','loginScreen','deniedScreen','app'])$(s).classList.toggle('hidden',s!==screen)}
+
+/* ===== 登入流程 ===== */
+async function boot(){
+  document.title=CONFIG.BANK_TITLE;
+  $('bankTitle').textContent=CONFIG.BANK_TITLE;
+  $('loginTitle').textContent=CONFIG.BANK_TITLE;
+  if(DEMO){
+    me={email:'demo@demo',name:'示範帳號',avatar:'',role:'admin'};
+    transactions=demoData();
+    $('demoBanner').classList.remove('hidden');
+    enterApp();return;
+  }
+  firebase.initializeApp(CONFIG.FIREBASE);
+  auth=firebase.auth();
+  db=firebase.firestore();
+  auth.onAuthStateChanged(handleUser);
+}
+async function handleUser(user){
+  if(!user){show('loginScreen');return}
+  me.email=user.email;
+  me.name=user.displayName||user.email.split('@')[0];
+  me.avatar=user.photoURL||'';
+  try{
+    const snap=await db.collection('allowed_users').doc(user.email).get();
+    if(!snap.exists){$('deniedEmail').textContent=user.email;show('deniedScreen');return}
+    const d=snap.data();
+    me.role=d.role;
+    if(d.display_name)me.name=d.display_name;
+    listenTx();
+    enterApp();
+  }catch(e){
+    $('loginErr').textContent='讀取權限失敗:'+e.message;show('loginScreen');
+  }
+}
+function listenTx(){
+  if(unsubscribeTx)unsubscribeTx();
+  unsubscribeTx=db.collection('transactions').onSnapshot(snap=>{
+    transactions=snap.docs.map(d=>({id:d.id,...d.data()}));
+    render();
+  },err=>toast('讀取紀錄失敗:'+err.message));
+}
+$('googleBtn').onclick=async()=>{
+  if(DEMO)return;
+  const provider=new firebase.auth.GoogleAuthProvider();
+  try{
+    await auth.signInWithPopup(provider);
+  }catch(e){
+    $('loginErr').textContent=e.code==='auth/popup-blocked'
+      ?'瀏覽器擋住了登入視窗,請允許彈出視窗後再試一次':e.message;
+  }
+};
+async function signOut(){if(!DEMO)await auth.signOut();location.reload()}
+
+/* ===== 主畫面 ===== */
+function enterApp(){
+  $('userName').textContent=me.name;
+  $('avatar').src=me.avatar||"data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='50' fill='%23FFB6D9'/><text x='50' y='68' font-size='50' text-anchor='middle'>🐻</text></svg>";
+  const tag=$('roleTag');
+  tag.textContent=me.role==='admin'?'管理員':'小主人';
+  tag.classList.toggle('admin',me.role==='admin');
+  if(me.role==='admin'){
+    $('adminPanel').classList.remove('hidden');
+    $('inDate').value=todayLocal();
+    setType('deposit');setColor('pink');
+  }
+  $('exchangeHint').textContent=`${CONFIG.PINK_PER_GREEN} 張粉色 = 1 張綠色 ・ ${CONFIG.GREEN_PER_PURPLE} 張綠色 = 1 張紫色 ・ 紫色每滿 ${CONFIG.INTEREST_DAYS} 天生 ${CONFIG.INTEREST_AMOUNT} 張粉色`;
+  render();
+  show('app');
+}
+
+function render(){
+  const r=simulate(transactions,todayLocal(),CONFIG);
+  $('cntPink').textContent=r.pink;
+  $('cntGreen').textContent=r.green;
+  $('cntPurple').textContent=r.purpleCount;
+  $('statValue').textContent=r.totalValuePink;
+  $('statInterest').textContent='✨ '+r.totalInterest;
+
+  /* 生息中的紫卡 */
+  $('pCount').textContent=r.activePurples.length?`(${r.activePurples.length} 張)`:'';
+  const pl=$('purpleList');
+  if(r.activePurples.length===0){
+    pl.innerHTML='<div class="p-empty">還沒有紫卡在生息。集滿 '+(CONFIG.PINK_PER_GREEN*CONFIG.GREEN_PER_PURPLE)+' 張粉卡的價值就會出現囉 🌱</div>';
+  }else{
+    pl.innerHTML=r.activePurples.map((p,i)=>{
+      const dots=Array.from({length:CONFIG.INTEREST_DAYS},(_,d)=>`<div class="dot${d<p.progress?' on':''}"></div>`).join('');
+      const ready=p.progress===0&&p.daysHeld>0;
+      const originBadge=p.origin==='merge'?'<span class="origin-badge">利息滾出來的!</span>':'<span class="origin-badge dep">存入</span>';
+      const detail=p.interestDates.length?`<ul class="p-detail" id="pd${i}" style="display:none">${p.interestDates.map(d=>`<li><span>${fmtDate(d)}</span><span>生了 ${CONFIG.INTEREST_AMOUNT} 張粉卡 ✨</span></li>`).join('')}</ul>
+        <button class="p-toggle" onclick="togglePd(${i},this)">看生息明細(${p.interestDates.length} 次)</button>`:'';
+      return `<div class="p-card">
+        <div class="p-top">
+          <div class="p-icon">★</div>
+          <div class="p-info">
+            <div class="p-title">${fmtDate(p.start)} ${originBadge}</div>
+            <div class="p-sub">已存 ${p.daysHeld} 天 ・ 已生 ${p.interestCount} 次利息</div>
+          </div>
+          <div class="p-next${ready?' ready':''}">
+            <div class="n">${ready?'✨今天':p.nextInterestIn}</div>
+            <div class="t">${ready?'生息日!':'天後生息'}</div>
+          </div>
+        </div>
+        <div class="dots">${dots}</div>
+        ${detail}
+      </div>`;
+    }).join('');
+  }
+  $('purpleStats').textContent=`歷來存入 ${r.depositedPurples} 張紫卡 ・ 利息滾出 ${r.mergedPurples} 張紫卡 ・ 共生出 ${r.totalInterest} 張粉卡利息`;
+
+  /* 無效提領警告 */
+  const failedIds=new Set(r.failedTx.map(t=>t.id));
+  const wb=$('warnBanner');
+  if(failedIds.size&&me.role==='admin'){
+    wb.textContent=`⚠️ 有 ${failedIds.size} 筆提領因當日餘額不足而未生效,請在存摺紀錄中修改或刪除。`;
+    wb.classList.remove('hidden');
+  }else wb.classList.add('hidden');
+
+  /* 存摺紀錄(新到舊) */
+  const list=[...transactions].sort((a,b)=>a.date!==b.date?(a.date<b.date?1:-1):String(a.createdAt||0)<String(b.createdAt||0)?1:-1);
+  const visible=showAll?list:list.slice(0,15);
+  $('moreBtn').classList.toggle('hidden',showAll||list.length<=15);
+  $('txList').innerHTML=list.length===0?'<div class="p-empty">還沒有任何紀錄,存進第一張獎勵卡吧!</div>':
+    visible.map(t=>{
+      const failed=failedIds.has(t.id);
+      const admin=me.role==='admin';
+      return `<div class="tx-row${failed?' tx-failed':''}">
+        <div class="tx-chip ${COLOR_CLS[t.color]}">${t.type==='deposit'?'💌':'🎁'}</div>
+        <div class="tx-main">
+          <div class="tx-line1">${COLOR_NAME[t.color]}卡 <span class="amt">${t.amount}</span> 張${t.note?` ・ <span style="font-weight:400;color:var(--ink-soft)">${escapeHtml(t.note)}</span>`:''}</div>
+          <div class="tx-line2">${fmtDate(t.date)}${failed?' ・ ⚠️ 餘額不足,此筆未生效':''}</div>
+        </div>
+        <span class="tx-type ${t.type==='deposit'?'dep':'wd'}">${t.type==='deposit'?'存入':'提領'}</span>
+        ${admin?`<div class="tx-actions">
+          <button class="mini-btn" onclick="startEdit('${t.id}')">編輯</button>
+          <button class="mini-btn del" onclick="delTx('${t.id}')">刪除</button>
+        </div>`:''}
+      </div>`;
+    }).join('');
+}
+function togglePd(i,btn){const el=$('pd'+i);const open=el.style.display!=='none';el.style.display=open?'none':'block';btn.textContent=open?btn.textContent.replace('收起','看生息'):btn.textContent.replace('看生息','收起')}
+function showAllTx(){showAll=true;render()}
+function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+
+/* ===== 管理表單 ===== */
+function setType(t){formType=t;
+  $('segDep').className=t==='deposit'?'on-dep':'';
+  $('segWd').className=t==='withdraw'?'on-wd':'';
+  updateSubmitLabel()}
+function setColor(c){formColor=c;
+  for(const[k,id]of Object.entries({pink:'colPink',green:'colGreen',purple:'colPurple'}))
+    $(id).classList.toggle('sel',k===c);
+  updateSubmitLabel()}
+function updateSubmitLabel(){
+  $('submitBtn').textContent=(editingId?'更新紀錄:':'')+(formType==='deposit'?'存入':'提領')+COLOR_NAME[formColor]+'卡'}
+
+async function submitTx(){
+  const date=$('inDate').value,amount=parseInt($('inAmount').value,10),note=$('inNote').value.trim();
+  if(!date){toast('請選擇日期');return}
+  if(!amount||amount<1){toast('張數要至少 1 張喔');return}
+  const row={date,color:formColor,amount,type:formType,note:note||null};
+  $('submitBtn').disabled=true;
+  try{
+    if(DEMO){
+      if(editingId){const t=transactions.find(x=>x.id===editingId);Object.assign(t,row)}
+      else transactions.push({...row,id:'d'+Date.now(),createdAt:Date.now()});
+      render();
+    }else if(editingId){
+      await db.collection('transactions').doc(editingId).update(row);
+    }else{
+      await db.collection('transactions').add({...row,createdAt:Date.now()});
+    }
+    toast(editingId?'已更新紀錄 ✅':(formType==='deposit'?'存入成功!💰':'提領成功!🎁'));
+    cancelEdit();
+  }catch(e){toast('儲存失敗:'+e.message)}
+  $('submitBtn').disabled=false;
+}
+function startEdit(id){
+  const t=transactions.find(x=>x.id===id);if(!t)return;
+  editingId=id;
+  $('inDate').value=t.date;$('inAmount').value=t.amount;$('inNote').value=t.note||'';
+  setType(t.type);setColor(t.color);
+  $('editingNote').textContent=`✏️ 正在編輯 ${fmtDate(t.date)} 的紀錄`;
+  $('editingNote').classList.remove('hidden');
+  $('cancelEditBtn').classList.remove('hidden');
+  $('adminPanel').scrollIntoView({behavior:'smooth'});
+}
+function cancelEdit(){
+  editingId=null;
+  $('editingNote').classList.add('hidden');
+  $('cancelEditBtn').classList.add('hidden');
+  $('inDate').value=todayLocal();$('inAmount').value=1;$('inNote').value='';
+  setType('deposit');setColor('pink');
+}
+async function delTx(id){
+  const t=transactions.find(x=>x.id===id);if(!t)return;
+  if(!confirm(`確定刪除這筆紀錄嗎?\n${fmtDate(t.date)} ${t.type==='deposit'?'存入':'提領'} ${COLOR_NAME[t.color]}卡 ${t.amount} 張\n\n刪除後餘額與利息會自動重新計算。`))return;
+  try{
+    if(DEMO){transactions=transactions.filter(x=>x.id!==id);render()}
+    else await db.collection('transactions').doc(id).delete();
+    if(editingId===id)cancelEdit();
+    toast('已刪除,餘額已重新計算');
+  }catch(e){toast('刪除失敗:'+e.message)}
+}
+
+/* ===== 示範資料 ===== */
+function demoData(){
+  const t=todayLocal();
+  return[
+    {id:'d1',date:addDays(t,-30),color:'purple',amount:1,type:'deposit',note:'開戶禮 🎉',createdAt:1},
+    {id:'d2',date:addDays(t,-18),color:'pink',amount:3,type:'deposit',note:'幫忙做家事',createdAt:2},
+    {id:'d3',date:addDays(t,-10),color:'green',amount:1,type:'deposit',note:'考試進步',createdAt:3},
+    {id:'d4',date:addDays(t,-5),color:'pink',amount:2,type:'withdraw',note:'換小點心',createdAt:4},
+  ];
+}
+boot();
+</script>
+</body>
+</html>
